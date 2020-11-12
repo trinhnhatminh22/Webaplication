@@ -10,8 +10,13 @@ require("firebase/firestore");
 
 firebase.initializeApp(config);
 
-const { validateSignupData, validateLoginData } = require("../util/validator");
+const {
+  validateSignupData,
+  validateLoginData,
+  reduceUserDetails,
+} = require("../util/validator");
 const admin = require("../util/admin");
+const { resolveSoa } = require("dns");
 
 exports.signup = (req, res) => {
   let token, userId;
@@ -26,6 +31,8 @@ exports.signup = (req, res) => {
   const { valid, errors } = validateSignupData(newUser);
 
   if (!valid) return res.status(400).json(errors);
+
+  const defaultImage = "A-1400317-1335717476.png.jpg";
 
   db.doc(`/user/${newUser.handle}`)
     .get()
@@ -50,6 +57,7 @@ exports.signup = (req, res) => {
         handle: newUser.handle,
         email: newUser.email,
         createdAt: new Date().toISOString(),
+        imageUrl: `https://firebasestorage.googleapis.com/v0/b/${config.storageBucket}/o/${defaultImage}?alt=media`,
         userId,
       };
       return db.doc(`/users/${newUser.handle}`).set(userCredentials);
@@ -92,7 +100,46 @@ exports.login = (req, res) => {
       }
     });
 };
+// add user detail
+exports.addUserDetails = (req, res) => {
+  let userDetails = reduceUserDetails(req.body);
 
+  db.doc(`/users/${req.user.handle}`)
+    .update(userDetails)
+    .then(() => {
+      return res.json({ message: "Detail added succesfully" });
+    })
+    .catch((err) => {
+      console.error(err);
+      return res.statu(500).json({ message: ` ${err}` });
+    });
+};
+// get user detail
+exports.getAuthenticatedUser = (req, res) => {
+  let userData = {};
+  db.doc(`/users/${req.user.handle}`)
+    .get()
+    .then((doc) => {
+      if (doc.exists) {
+        userData.credentials = doc.data();
+        return db
+          .collection("likes")
+          .where("userHandle", "==", req.user.handle)
+          .get()
+          .then((data) => {
+            userData.likes = [];
+            data.forEach((doc) => {
+              userData.likes.push(doc.data());
+            });
+            return res.json(userData);
+          }).catch( err => {
+            console.error(err);
+            return res.status(500).json({error:`${err}`});
+          })
+      }
+    });
+};
+// this function using for upload image to firebase
 exports.uploadImage = (req, res) => {
   const Busboy = require("busboy");
   const path = require("path");
@@ -105,10 +152,10 @@ exports.uploadImage = (req, res) => {
   let imageToBeUploaded = {};
 
   busboy.on("file", (fieldname, file, filename, encoding, mimetype) => {
-    console.log("field name is: ",fieldname);
+    console.log("field name is: ", fieldname);
     console.log("file name is: ", filename);
-    console.log("minetype is: ",mimetype);
-    console.log("file is: ",file);
+    console.log("minetype is: ", mimetype);
+    console.log("file is: ", file);
     // email format name: my.image.png
     const imageExtension = filename.split(".");
     [filename.split(".").length - 1];
@@ -117,30 +164,39 @@ exports.uploadImage = (req, res) => {
 
     const filePath = path.join(os.tmpdir(), imageFileName);
 
-    imageToBeUploaded = { filePath, mimetype};
+    imageToBeUploaded = { filePath, mimetype };
     file.pipe(fs.createWriteStream(filePath));
   });
-  busboy.on('finish', () => {
-    admin.storage().bucket().upload(imageToBeUploaded.filePath, {
-      resumable: false,
-      metadata: {
+  busboy.on("finish", () => {
+    if (mimetype !== "image/jpeg" && mimetype !== "image/png") {
+      return res.status(400).json({ error: "Wrong type of file" });
+    }
+    admin
+      .storage()
+      .bucket()
+      .upload(imageToBeUploaded.filePath, {
+        resumable: false,
         metadata: {
-          contentType: imageToBeUploaded.mimetype
-        }
-      }
-    })
-    .then(() => {
-      // without alt = media. it will dowload the file to computer
-      // with alt=media. it will show the image 
-      const imageUrl = `https://firebasestorage.googleapis.com/v0/b/${config.storageBucket}/o/${imageFileName}?alt=media`;
-      return db.doc(`/users/${req.user.handle}`).update({ imageUrl: imageUrl});
-    })
-    .then(() => {
-      return res.json({message: 'Image uploaded successfully'});
-    })
-    .catch(err => {
-      console.error(err);
-      return res.status(500).json({ error: err.code});
-    })
-  })
+          metadata: {
+            contentType: imageToBeUploaded.mimetype,
+          },
+        },
+      })
+      .then(() => {
+        // without alt = media. it will dowload the file to computer
+        // with alt=media. it will show the image
+        const imageUrl = `https://firebasestorage.googleapis.com/v0/b/${config.storageBucket}/o/${imageFileName}?alt=media`;
+        return db
+          .doc(`/users/${req.user.handle}`)
+          .update({ imageUrl: imageUrl });
+      })
+      .then(() => {
+        return res.json({ message: "Image uploaded successfully" });
+      })
+      .catch((err) => {
+        console.error(err);
+        return res.status(500).json({ error: err.code });
+      });
+  });
+  busboy.end(req.rawBody);
 };
