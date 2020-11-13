@@ -5,24 +5,38 @@ const app = express();
 
 const FBAuth = require("./util/fbAuth");
 
-const { getAllScreams, postOneScreams, getScream, commentOnScreen } = require("./handle/screams");
-const { signup, login, uploadImage, addUserDetails, getAuthenticatedUser } = require("./handle/users");
+const {
+  getAllScreams,
+  postOneScreams,
+  getScream,
+  commentOnScream,
+  likeScream,
+  unLikeScream,
+  deleteScream,
+} = require("./handle/screams");
+const {
+  signup,
+  login,
+  uploadImage,
+  addUserDetails,
+  getAuthenticatedUser,
+} = require("./handle/users");
 
 // screams route
 // get info screams
 app.get("/scream", getAllScreams);
 // create info screams
 app.post("/scream", FBAuth, postOneScreams);
-//
-app.get('/scream/:screamId', getScream);
+// route get all scream
+app.get("/scream/:screamId", getScream);
 // delete scream
+app.delete("/scream/:screamId", FBAuth, deleteScream);
 // like a scream
+app.get("/scream/:screamId/like", FBAuth, likeScream);
 // unlike a scream
-// comment on scream
-app.post('/scream/:screamId/comment',FBAuth, commentOnScreen);
-
-
-
+app.get("/scream/:screamId/unlike", FBAuth, unLikeScream);
+// comment on screen
+app.post("/scream/:screamId/comment", FBAuth, commentOnScream);
 
 // user route for sign up
 app.post("/signup", signup);
@@ -30,8 +44,13 @@ app.post("/signup", signup);
 app.post("/login", login);
 // get user data
 app.get("/user", FBAuth, getAuthenticatedUser);
-
+// route upload image
 app.post("/user/image", FBAuth, uploadImage);
-app.post('/user', FBAuth, addUserDetails);
+// route add user details
+app.post("/user", FBAuth, addUserDetails);
 
 exports.api = functions.https.onRequest(app);
+
+exports.createNotification = functions.https.onRequest((req,res)=> {
+    
+})

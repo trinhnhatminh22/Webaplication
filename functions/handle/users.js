@@ -114,7 +114,7 @@ exports.addUserDetails = (req, res) => {
       return res.statu(500).json({ message: ` ${err}` });
     });
 };
-// get user detail
+// get user detail where handle in DB = userHandle
 exports.getAuthenticatedUser = (req, res) => {
   let userData = {};
   db.doc(`/users/${req.user.handle}`)
@@ -124,7 +124,7 @@ exports.getAuthenticatedUser = (req, res) => {
         userData.credentials = doc.data();
         return db
           .collection("likes")
-          .where("userHandle", "==", req.user.handle)
+          .where("handle", "==", req.user.handle)
           .get()
           .then((data) => {
             userData.likes = [];
@@ -132,10 +132,11 @@ exports.getAuthenticatedUser = (req, res) => {
               userData.likes.push(doc.data());
             });
             return res.json(userData);
-          }).catch( err => {
-            console.error(err);
-            return res.status(500).json({error:`${err}`});
           })
+          .catch((err) => {
+            console.error(err);
+            return res.status(500).json({ error: `${err}` });
+          });
       }
     });
 };
