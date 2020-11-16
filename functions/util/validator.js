@@ -61,6 +61,7 @@ const isEmail = (email) => {
   }
 };
 
+// set the data for user:  location, website
 exports.reduceUserDetails = (data) => {
   let userDetails = {};
 

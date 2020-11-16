@@ -11,6 +11,7 @@ exports.getAllScreams = (req, res) => {
           user: doc.data().handle,
           body: doc.data().body,
           createdAt: doc.data().createdAt,
+          userImage: doc.data().imageUrl
         });
       });
       return res.json(userArr);
