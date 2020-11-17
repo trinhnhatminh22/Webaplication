@@ -67,7 +67,7 @@ exports.signup = (req, res) => {
     })
     .catch((err) => {
       console.error(err);
-      return res.status(500).json({ general: 'Something wrong, try again' });
+      return res.status(500).json({ general: "Something wrong, try again" });
     });
 };
 
@@ -94,9 +94,14 @@ exports.login = (req, res) => {
     .catch((error) => {
       console.error(error);
       if (error.code === "auth/wrong-password") {
-        return res.status(403).json({ message: `Wrong password` });
-      } else {
-        return res.status(500).json({ message: `${error}` });
+        return res.status(403).json({ errors: `Wrong password` });
+      } else if (error.code === "auth/user-not-found") {
+        return res.status(404).json({ errors: `Wrong email or password` });
+      } else if (error.code ==="auth/invalid-email"){
+        return res.status(403).json({ errors: `Email not vaild` });
+      }else {
+        return res.status(500).json({ errors: error.code });
+
       }
     });
 };
@@ -116,38 +121,42 @@ exports.addUserDetails = (req, res) => {
 };
 
 // get userdetails
-exports.getUserDetails = (req,res) => {
+exports.getUserDetails = (req, res) => {
   let userData = {};
-  db.doc(`/users/${req.params.handle}`).get()
-  .then( doc => {
-    if(doc.exists){
-      userData.user = doc.data();
-      return db.collection(`screams`).where(`handle`,'==',req.params.handle)
-      .orderBy('createAt','desc')
-      .get();
-    }else {
-      return res.status(404).json({error: 'users not found'});
-    }
-  })
-  .then(data => {
-    userData.screams = [];
-    data.forEach( doc => {
-      userData.screams.push({
-        body: doc.data().body,
-        createAt: doc.data().createAt,
-        handle: doc.data().handle,
-        userImage: doc.data().userImage,
-        likeCount: doc.data().likeCount,
-        commentCount: doc.data().commentCount,
-        screamid: doc.id
-      })
+  db.doc(`/users/${req.params.handle}`)
+    .get()
+    .then((doc) => {
+      if (doc.exists) {
+        userData.user = doc.data();
+        return db
+          .collection(`screams`)
+          .where(`handle`, "==", req.params.handle)
+          .orderBy("createAt", "desc")
+          .get();
+      } else {
+        return res.status(404).json({ error: "users not found" });
+      }
+    })
+    .then((data) => {
+      userData.screams = [];
+      data.forEach((doc) => {
+        userData.screams.push({
+          body: doc.data().body,
+          createAt: doc.data().createAt,
+          handle: doc.data().handle,
+          userImage: doc.data().userImage,
+          likeCount: doc.data().likeCount,
+          commentCount: doc.data().commentCount,
+          screamid: doc.id,
+        });
+      });
+      return res.json(userData);
+    })
+    .catch((err) => {
+      console.error(err);
+      return res.status(500).json({ error: err.code });
     });
-    return res.json(userData);
-  }).catch( err => {
-    console.error(err);
-    return res.status(500).json({error: err.code});
-  })
-}
+};
 
 // get user detail where handle in DB = userHandle
 exports.getAuthenticatedUser = (req, res) => {
@@ -166,30 +175,34 @@ exports.getAuthenticatedUser = (req, res) => {
             data.forEach((doc) => {
               userData.likes.push(doc.data());
             });
-            return db.collection(`notifications`).where('recipient','==',req.user.handle)
-            .orderBy('createAt','desc').limit(10).get();
+            return db
+              .collection(`notifications`)
+              .where("recipient", "==", req.user.handle)
+              .orderBy("createAt", "desc")
+              .limit(10)
+              .get();
           })
-          .then( data => {
+          .then((data) => {
             userData.notifications = [];
-            data.forEach(doc => {
+            data.forEach((doc) => {
               userData.notifications.push({
-                recipient : doc.data().recipient,
-                sender : doc.data().sender,
+                recipient: doc.data().recipient,
+                sender: doc.data().sender,
                 createAt: doc.data().createAt,
                 screamId: doc.data().screamId,
                 type: doc.data().type,
                 read: doc.data().read,
-                notificationId : doc.id
-              })
+                notificationId: doc.id,
+              });
             });
-           return res.json(userData);
+            return res.json(userData);
           })
           .catch((err) => {
             console.error(err);
             return res.status(500).json({ error: err.code });
           });
-      }else {
-        return res.status(404).json({error: 'User not found'});
+      } else {
+        return res.status(404).json({ error: "User not found" });
       }
     });
 };
@@ -255,17 +268,19 @@ exports.uploadImage = (req, res) => {
   busboy.end(req.rawBody);
 };
 
-exports.markNotificationRead = (req,res) => {
+exports.markNotificationRead = (req, res) => {
   let batch = db.batch();
-  req.body.forEach(notificationId => {
+  req.body.forEach((notificationId) => {
     const notification = db.doc(`/notifictions/${notificationId}`);
-    batch.update(notification, {read: true});
+    batch.update(notification, { read: true });
   });
-  batch.commit()
-  .then( () => {
-    return res.json({ message: 'Notification marked read'});
-  }).catch( err => {
-    console.error(err);
-    return res.status(500).json({error: err.code});
-  })
-}
+  batch
+    .commit()
+    .then(() => {
+      return res.json({ message: "Notification marked read" });
+    })
+    .catch((err) => {
+      console.error(err);
+      return res.status(500).json({ error: err.code });
+    });
+};

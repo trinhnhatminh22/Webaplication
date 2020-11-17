@@ -7,11 +7,13 @@ exports.getAllScreams = (req, res) => {
       let userArr = [];
       data.forEach((doc) => {
         userArr.push({
-          id: doc.id,
-          user: doc.data().handle,
+          screamId: doc.id,
+          handle: doc.data().handle,
           body: doc.data().body,
           createdAt: doc.data().createdAt,
-          userImage: doc.data().imageUrl
+          userImage: doc.data().userImage,
+          likeCount: doc.data().likeCount,
+          commentCount: doc.data().commentCount
         });
       });
       return res.json(userArr);
